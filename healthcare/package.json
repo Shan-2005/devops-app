@@ -2,5 +2,5 @@
   "name": "healthcare-api",
   "version": "1.0.0",
   "scripts": { "start": "node app.js" },
-  "dependencies": { "lodash": "4.17.15" }
+  "dependencies": { "lodash": "4.17.21" }
 }
