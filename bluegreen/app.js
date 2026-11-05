@@ -1,5 +1,5 @@
 const http = require('http');
-const VERSION = 'v1';
+const VERSION = 'v2';
 const color = process.env.COLOR || 'grey';
 const build = process.env.BUILD || '0';
 http.createServer((req, res) => {
