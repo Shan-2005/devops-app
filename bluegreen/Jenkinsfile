@@ -1,0 +1,51 @@
+pipeline {
+  agent any
+  environment {
+    IMAGE = "joeshan/bluegreen-app"
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+    stage('Build and Push Image') {
+      steps {
+        dir('bluegreen') {
+          withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+              usernameVariable: 'U', passwordVariable: 'P')]) {
+            sh '''
+              docker build -t $IMAGE:$BUILD_NUMBER .
+              echo $P | docker login -u $U --password-stdin
+              docker push $IMAGE:$BUILD_NUMBER
+            '''
+          }
+        }
+      }
+    }
+    stage('Deploy to Idle Color') {
+      steps {
+        dir('bluegreen') {
+          sh '''
+            LIVE=$(kubectl get svc bg-app-svc -o jsonpath='{.spec.selector.color}' 2>/dev/null || echo none)
+            if [ "$LIVE" = "blue" ]; then NEW=green; else NEW=blue; fi
+            echo "Live: $LIVE  ->  Deploying to: $NEW"
+            echo $NEW > new_color.txt
+            sed "s/COLOR/$NEW/g; s#IMAGE_TAG#$IMAGE:$BUILD_NUMBER#; s/BUILD_NUM/$BUILD_NUMBER/" deployment.yaml | kubectl apply -f -
+            kubectl rollout status deployment/bg-app-$NEW
+          '''
+        }
+      }
+    }
+    stage('Switch Traffic') {
+      steps {
+        dir('bluegreen') {
+          sh '''
+            NEW=$(cat new_color.txt)
+            kubectl get svc bg-app-svc >/dev/null 2>&1 || kubectl apply -f service.yaml
+            kubectl patch svc bg-app-svc -p "{\\"spec\\":{\\"selector\\":{\\"app\\":\\"bg-app\\",\\"color\\":\\"$NEW\\"}}}"
+            echo "Traffic now goes to $NEW"
+          '''
+        }
+      }
+    }
+  }
+}
