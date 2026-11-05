@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bg-app-COLOR
+  name: bg-app-__COLOR__
 spec:
   replicas: 2
   selector:
     matchLabels:
       app: bg-app
-      color: COLOR
+      color: __COLOR__
   template:
     metadata:
       labels:
         app: bg-app
-        color: COLOR
+        color: __COLOR__
     spec:
       containers:
       - name: bg-app
@@ -21,6 +21,6 @@ spec:
         - containerPort: 3000
         env:
         - name: COLOR
-          value: "COLOR"
+          value: "__COLOR__"
         - name: BUILD
           value: "BUILD_NUM"

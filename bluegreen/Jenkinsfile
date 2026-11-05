@@ -29,7 +29,7 @@ pipeline {
             if [ "$LIVE" = "blue" ]; then NEW=green; else NEW=blue; fi
             echo "Live: $LIVE  ->  Deploying to: $NEW"
             echo $NEW > new_color.txt
-            sed "s/COLOR/$NEW/g; s#IMAGE_TAG#$IMAGE:$BUILD_NUMBER#; s/BUILD_NUM/$BUILD_NUMBER/" deployment.yaml | kubectl apply -f -
+            sed "s/__COLOR__/$NEW/g; s#IMAGE_TAG#$IMAGE:$BUILD_NUMBER#; s/BUILD_NUM/$BUILD_NUMBER/" deployment.yaml | kubectl apply -f -
             kubectl rollout status deployment/bg-app-$NEW
           '''
         }
