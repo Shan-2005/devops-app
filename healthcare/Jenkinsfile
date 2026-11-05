@@ -1,0 +1,60 @@
+pipeline {
+  agent any
+  environment {
+    IMAGE = "joeshan/healthcare-api"
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+    stage('Secret Scan - Gitleaks') {
+      steps {
+        dir('healthcare') {
+          sh 'gitleaks detect --no-git --source . --redact --exit-code 1'
+        }
+      }
+    }
+    stage('Dependency Scan - npm audit') {
+      steps {
+        dir('healthcare') {
+          sh 'npm install --package-lock-only --ignore-scripts'
+          sh 'npm audit --audit-level=critical'
+        }
+      }
+    }
+    stage('Build Image') {
+      steps {
+        dir('healthcare') {
+          sh 'docker build -t $IMAGE:$BUILD_NUMBER .'
+        }
+      }
+    }
+    stage('Image Scan - Trivy') {
+      steps {
+        sh 'trivy image --severity CRITICAL --exit-code 1 --ignore-unfixed $IMAGE:$BUILD_NUMBER'
+      }
+    }
+    stage('Push Image') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+            usernameVariable: 'U', passwordVariable: 'P')]) {
+          sh '''
+            echo $P | docker login -u $U --password-stdin
+            docker push $IMAGE:$BUILD_NUMBER
+          '''
+        }
+      }
+    }
+    stage('Deploy Hardened') {
+      steps {
+        dir('healthcare') {
+          sh '''
+            kubectl apply -f service.yaml
+            sed "s#IMAGE_TAG#$IMAGE:$BUILD_NUMBER#" deployment.yaml | kubectl apply -f -
+            kubectl rollout status deployment/healthcare-api
+          '''
+        }
+      }
+    }
+  }
+}
